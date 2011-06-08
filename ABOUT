@@ -1,0 +1,144 @@
+The idea of this protocol is to create a chat server with unlimited possibilities.
+It is similar to the IRC protocol, except it may be a bit less human-readable.
+Clients will be designed to handle what they're capable of and ignore what they aren't capable of.
+
+The use of JSON
+-------------------------------------------------
+
+This protocol uses JSON for assurance of proper syntax and easy compatibility.
+JSON parsers are available for nearly every common language, which makes writing clients and servers much easier.
+
+It is a server's responsibility to encode JSON to be sent, and it is a client's responsibility to decode what it receives.
+It is a client's responsibility to encode JSON to be sent, and it is a server's responsibility to decode what it receives.
+
+The use of JSON also eliminates the necessity for parameters to be in a specific order.
+For this reason, extending a parameter list is extremely simple.
+
+As the protocol becomes more advanced, more parameters will be added.
+The server-client compatibility with the protocol will not be affected!
+
+Basic command syntax
+-------------------------------------------------
+
+The basic syntax of a command sent from a SERVER to a CLIENT is in the following format.
+    <command>:<source>:<target>:<JSON encoded parameters>
+
+In some cases, the source and target are not necessary.
+Then, they are simply left blank.
+This tells the client that the command's source is the server itself.
+":::" from a server to a client still follows the "target:source" rule; it simply means that there isn't a target or source.
+
+If no parameters are required, the JSON section can validly be left out, including the colon.
+
+Unlike in IRC, the separator is the colon (:) rather than the space ( ).
+This allows more flexibility as the use of the colon is far less common than the use of the space.
+
+The syntax of a command sent from a CLIENT to a SERVER is in the following format.
+    <command>:<target>:<JSON encoded parameters>
+
+Once again, the colon separates the elements.
+
+Clients don't need to send the source because all commands sent from a client obviously come from that client.
+If the target is ever unnecessary, it is left blank.
+This tells the server that the target of the command is the server itself.
+
+Commands
+-------------------------------------------------
+
+Commands are not case-sensitive. They can contain any characters with the exception of the colon (:).
+
+It is common for commands in this protocol to have symbols, *usually* as a prefix or suffix.
+They don't always follow these rules, but the following are most common.
+    !   command is important and THE SOURCE IS SHOUTING AT YOU
+    @   "to" - command is pointing to a target such as talking to someone
+    #   command isn't of great importance or in the background
+    ?   the source is asking a question
+    >   "in" - command is entering somewhere
+    <   "out" - command is leaving somewhere
+
+Below is a list of common server-to-client commands.
+
+    command         usage
+    -------         -----
+    ping!           ping the client
+    pong!           pong the client
+    error!          the connection has been dropped
+    #note           the server is giving you a notice
+    #fam            the server is familiarizing you with a user
+    #unfam          the server is unfamiliarizing you with a user
+    u>              "you in" - notifies the client that they are in a channel
+    chatinf         "chat information" - informs you of a chatroom's information
+    talk@           "talk to" - someone sends a message to somewhere or someone
+
+Below is a list of common client-to-server commands.
+
+    command         usage
+    -------         -----
+    ping!           ping the server
+    pong!           pong the server
+    peak>           "peak in" - ask for information about a chatroom
+    go<             "go out" - leave from a chatroom
+    go@             "go to" - join a chatroom
+    go@n            "go to name" - join a chatroom by its name
+    talk@           "talk to" - send a message to someone or somewhere
+
+Identification of servers, users, and chatrooms
+-------------------------------------------------
+
+The goal of server linkage is to create the illusion of a single server.
+To a client, it should seem as if there is only one server that every user and every chatroom is hosted on.
+For this reason, servers have no form of identification in the client protocol.
+Some commands are dedicated only to servers, instead.
+
+Each user and chatroom has an identification key.
+Keys are used in both the client protocol and the server protocol.
+
+This eliminates the problem that exists in IRC which requires channels to be prefixed with symbols in order to segregate them from users.
+Two targets may not have the same name, however.
+In IRC, users are racist and segregate themselves from channels by marking them with prefixes.
+It's kinda like how the Nazis put symbols on Jews.
+In this protocol, however, users and channels are equals.
+Times have changed since IRC was invented, and racism is now frowned upon.
+Users are chatrooms are good friends, and racism no longer exists.
+
+Identification keys are determined by the server.
+They can contain any characters with the exception of the colon (:), and they must be entirely unique.
+
+The same keys should be used in both the client protocol and the server protocol to avoid confusion.
+
+Client familiarization is done by the #fam command.
+During a session, you should only be familiarized with a user once unless the user's information changes.
+
+Chatrooms
+-------------------------------------------------
+
+EXAMPLES
+--------------------------------------------------------------------------------------------------
+
+server-to-client:
+
+error in connection     error!::147:{"reason":"ping timeout"}                               server has no target name, 147 is user ID
+familiarize a user      #fam:::[{"id":147,"username":"someone","hostname":"google.com"}]    147 is the user ID
+server notice           #note::147:["This is a server notice!"]                             147 is the user ID
+
+client-to-server:
+
+Join a channel          go@:c25373                                                          assuming c25373 is the target chatroom ID
+leave a channel         go<:c25373:{"reason":"gotta go!"}                                   assuming c25373 is the target chatroom ID
+view channel info       peak>:c25373                                                        assuming c25373 is the target chatroom ID
+send a ping             ping!:                                                              the colon is necessary as the target field is always required
+send a message          talk@:147:{"message":"hey there! :)"}                               assuming 147 is the target user ID
+
+example client-server session (> is incoming from server, < is outgoing from client. indented for clarity)
+it's very simple; an actual session would likely be much more complex with more parameters and more information.
+
+< ready!::{"username":"cooper"}                                                             similar to USER in IRC
+    > ready!:::{"network":"NoTrollPlzNet"}                                                  similar to IRC RPL_ISUPPORT
+    > welcome!::147                                                                         notifies the client that its user ID is 147
+    > #fam::147:[{"id":"147","username":"cooper","hostname":"notroll.net"}]                 familiarizes the client with user 147 (itself)
+< go@n::{"name":"chat"}                                                                     requests to join the "chat" chatroom
+    > u>:363:147:{"name":"chat"}                                                            notifies the client that it is now in chat (ID 363)
+    > #fam:363:147:[{"id":"258","username":"starcoder","hostname":"starcoder.info"}]        familiarizes you with the users in the channel
+    > chatinf:363:147:{"topic":"hello there!","creation":1307140291,"users":[258,147]}      informs you of channel information
+< talk@:363:{"message":"hello starcoder!"}                                                  sends a message to chat
+    > talk@:258:363:{"message":"hi cooper"}                                                 starcoder sends a message to chat
